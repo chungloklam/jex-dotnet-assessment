@@ -1,0 +1,252 @@
+# JEX Assessment — API manual verification
+# Run the API using the HTTPS launch profile.
+# Base URL from Properties/launchSettings.json.
+#
+# IMPORTANT: This walkthrough assumes a FRESH database after applying migrations.
+# Run the requests in order, one at a time. On a fresh database, the four
+# companies receive IDs 1–4 and the four backoffice vacancies receive IDs 1–4.
+# If you already have data, replace these example IDs with IDs from responses,
+# or start with a new database and apply the existing migration.
+#
+# In Visual Studio Package Manager Console (after creating a fresh database):
+#   Update-Database
+#
+# Separate each request with ### and a blank line after Content-Type.
+
+@host = https://localhost:7221
+
+
+# ============================================================
+# USER STORY 1 — BACKOFFICE: COMPANIES
+# ============================================================
+
+### 01 — Create JEX (expected: 201 Created; ID 1 on fresh database)
+POST {{host}}/api/companies
+Content-Type: application/json
+
+{
+  "name": "JEX",
+  "address": "Rotterdam"
+}
+
+### 02 — Create Microsoft (expected: 201 Created; ID 2)
+POST {{host}}/api/companies
+Content-Type: application/json
+
+{
+  "name": "Microsoft",
+  "address": "Amsterdam"
+}
+
+### 03 — Create Contoso (expected: 201 Created; ID 3)
+POST {{host}}/api/companies
+Content-Type: application/json
+
+{
+  "name": "Contoso",
+  "address": "Silicon Valley"
+}
+
+### 04 — Create a company without vacancies (expected: 201 Created; ID 4)
+POST {{host}}/api/companies
+Content-Type: application/json
+
+{
+  "name": "Example Company",
+  "address": "Utrecht"
+}
+
+### 05 — Get all companies (expected: 200 OK; four companies)
+GET {{host}}/api/companies
+
+### 06 — Get JEX by ID (expected: 200 OK)
+GET {{host}}/api/companies/1
+
+### 07 — Update JEX (expected: 204 No Content)
+PUT {{host}}/api/companies/1
+Content-Type: application/json
+
+{
+  "name": "JEX Nederland",
+  "address": "Rotterdam"
+}
+
+### 08 — Verify updated company (expected: 200 OK)
+GET {{host}}/api/companies/1
+
+
+# ============================================================
+# USER STORY 1 — BACKOFFICE: VACANCIES
+# ============================================================
+
+### 09 — Create active JEX vacancy (expected: 201 Created; vacancy ID 1)
+POST {{host}}/api/vacancies
+Content-Type: application/json
+
+{
+  "companyId": 1,
+  "title": "Senior .NET Developer",
+  "description": "Develop and maintain backend APIs",
+  "isActive": true
+}
+
+### 10 — Create inactive JEX vacancy (expected: 201 Created; vacancy ID 2)
+POST {{host}}/api/vacancies
+Content-Type: application/json
+
+{
+  "companyId": 1,
+  "title": "Junior .NET Developer",
+  "description": "Support the backend development team",
+  "isActive": false
+}
+
+### 11 — Create active Microsoft vacancy (expected: 201 Created; vacancy ID 3)
+POST {{host}}/api/vacancies
+Content-Type: application/json
+
+{
+  "companyId": 2,
+  "title": "Azure Developer",
+  "description": "Develop cloud applications on Azure",
+  "isActive": true
+}
+
+### 12 — Create inactive Contoso vacancy (expected: 201 Created; vacancy ID 4)
+POST {{host}}/api/vacancies
+Content-Type: application/json
+
+{
+  "companyId": 3,
+  "title": "Java Developer",
+  "description": "Develop Java applications",
+  "isActive": false
+}
+
+### 13 — Get all vacancies (expected: 200 OK; four vacancies)
+GET {{host}}/api/vacancies
+
+### 14 — Get JEX vacancy by ID (expected: 200 OK)
+GET {{host}}/api/vacancies/1
+
+### 15 — Update JEX vacancy (expected: 204 No Content)
+PUT {{host}}/api/vacancies/1
+Content-Type: application/json
+
+{
+  "companyId": 1,
+  "title": "Senior Backend Developer",
+  "description": "Build scalable REST APIs",
+  "isActive": true
+}
+
+### 16 — Verify updated vacancy (expected: 200 OK)
+GET {{host}}/api/vacancies/1
+
+
+# ============================================================
+# USER STORY 2 — COMPANIES WITH ACTIVE VACANCIES
+# ============================================================
+
+### 17 — Active vacancy listing (expected: 200 OK)
+# Expected: JEX and Microsoft only, each with its active vacancy.
+# Excluded: Contoso (only inactive vacancy), Example Company (no vacancies).
+# JEX's inactive Junior .NET Developer vacancy must not be included.
+GET {{host}}/api/companies/with-active-vacancies
+
+
+# ============================================================
+# USER STORY 3 — PUBLIC VACANCY CREATION
+# ============================================================
+
+### 18 — Public creation, title only (expected: 201 Created; isActive false)
+POST {{host}}/api/companies/1/vacancies
+Content-Type: application/json
+
+{
+  "title": "Full Stack .NET Developer"
+}
+
+### 19 — Public creation, title and optional description (expected: 201 Created; isActive false)
+POST {{host}}/api/companies/2/vacancies
+Content-Type: application/json
+
+{
+  "title": "Azure Backend Developer",
+  "description": "Develop cloud-native applications"
+}
+
+### 20 — Verify public vacancies are not in active listing (expected: 200 OK)
+# Only the original active vacancies should appear for JEX and Microsoft.
+GET {{host}}/api/companies/with-active-vacancies
+
+
+# ============================================================
+# VALIDATION AND ERROR RESPONSES
+# ============================================================
+
+### 21 — Missing public vacancy title (expected: 400 Bad Request)
+POST {{host}}/api/companies/1/vacancies
+Content-Type: application/json
+
+{
+  "description": "Missing mandatory title"
+}
+
+### 22 — Whitespace-only public vacancy title (expected: 400 Bad Request)
+POST {{host}}/api/companies/1/vacancies
+Content-Type: application/json
+
+{
+  "title": "   "
+}
+
+### 23 — Public vacancy for nonexistent company (expected: 404 Not Found)
+POST {{host}}/api/companies/999999/vacancies
+Content-Type: application/json
+
+{
+  "title": "Senior .NET Developer"
+}
+
+### 24 — Backoffice vacancy for nonexistent company (expected: 404 Not Found)
+POST {{host}}/api/vacancies
+Content-Type: application/json
+
+{
+  "companyId": 999999,
+  "title": "Backend Developer",
+  "description": "Develop APIs",
+  "isActive": true
+}
+
+### 25 — Missing company name (expected: 400 Bad Request)
+POST {{host}}/api/companies
+Content-Type: application/json
+
+{
+  "address": "Rotterdam"
+}
+
+### 26 — Nonexistent vacancy (expected: 404 Not Found)
+GET {{host}}/api/vacancies/999999
+
+
+# ============================================================
+# DELETE SCENARIOS — RUN THESE LAST
+# ============================================================
+
+### 27 — Delete company with vacancies (expected: 409 Conflict)
+DELETE {{host}}/api/companies/1
+
+### 28 — Delete inactive Contoso vacancy (expected: 204 No Content)
+DELETE {{host}}/api/vacancies/4
+
+### 29 — Delete Contoso after removing its only vacancy (expected: 204 No Content)
+DELETE {{host}}/api/companies/3
+
+### 30 — Delete company without vacancies (expected: 204 No Content)
+DELETE {{host}}/api/companies/4
+
+### 31 — Verify deleted company is gone (expected: 404 Not Found)
+GET {{host}}/api/companies/4
